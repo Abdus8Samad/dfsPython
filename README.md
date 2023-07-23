@@ -7,24 +7,35 @@ This project uses sockets to send information between servers and services.
 
 To run this project, do the following:
 
-* Run the client application: **python client.py**
-* Run the directory service: **python directory_service.py**
-* Run the locking service: **python locking_service.py**
-* Run fileserver A in a separate directory - fileserver A is holds the primary copy for replication and can be written to: **python fileserverA.py**
-* Run fileserver B in a separate directory - fileserver B only takes read requests: **python fileserverB.py**
-* Run fileserver C in a separate directory - fileserver C (like fileserver B) only takes read requests: **python fileserverC.py**
+* Run the client application: **python start_script.py**
+
+```
+$ python start_script.py
+Starting services...
+FILE SERVER is ready to receive...
+FILE SERVER is ready to receive...    
+FILE SERVER is ready to receive...    
+LOCKING SERVICE is ready to receive...
+DIRECTORY SERVICE is ready to receive...
+```
+
+## file servers:
+
+* fileserver A holds the primary copy for replication, can be used for writing : **python fileserverA.py**
+* fileserver B only takes read requests: **python fileserverB.py**
+* fileserver C (like fileserver B) only takes read requests: **python fileserverC.py**
+
 
 ## Example Usage
 
-* Start up the directory_service.py, the locking_service.py and the three fileservers all in separate terminals. Fileserver A, fileserver B and fileserver c must exist in their own separate folders/ directories.
+* Start up the start_script.py. Fileserver A, fileserver B and fileserver c must exist in their own separate folders/ directories.
 
-* Open 2 clients in separate terminals.
+* Open 2 clients using ***python client.py*** in separate terminals.
 
 * Client 1 write:
 
 ```
-$<write> file1
-You are granted the file...
+$<write> somefilename
 Write some text...
 <end> to finish writing
 --------------------------------
@@ -41,7 +52,7 @@ Exiting <write> mode...
 * Client 1 read:
 
 ```
-$<read> file1
+$<read> somefilename
 Checking version...
 Versions match, reading from cache...
 --------------------------------
@@ -54,13 +65,13 @@ Exiting <read> mode...
 * Client 2 read: 
 
 ```
-$<read> file1
+$<read> somefilename
 REQUESTING FILE FROM FILE SERVER - FILE NOT IN CACHE
 --------------------------------
 Hello world!
 
 --------------------------------
-file1.txt successfully cached...
+somefilename.txt successfully cached...
 Exiting <read> mode...
 ```
 
@@ -85,9 +96,15 @@ The client can use the following commands to access files:
 
 	<write> [filename]  # write to file mode
 	<end>           # finish writing
+
 	<read> [filename]   # read from file mode
+
+	<create> [filename]  # create to file mode
+
 	<list>          # lists all existing files
+
 	<instructions>      # lets you see the instructions 
+
 	<quit>          # exits the application
 
 ----

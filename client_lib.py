@@ -1,16 +1,21 @@
 from socket import *
 import sys
 import os
-import time
+from time import sleep
 import os.path
 
 curr_path = os.path.dirname(os.path.realpath(sys.argv[0]))      # get path of current program (client.py)
+main_server_IP = 'localhost'
+main_server_PORT = 12001
+lock_server_IP = 'localhost'
+lock_server_PORT = 4040
 
-
+# creating a socket
 def create_socket():
     s = socket(AF_INET, SOCK_STREAM)
     return s
 
+# for sending request to server for writing to the file
 def send_write(client_socket, fileserverIP_DS, fileserverPORT_DS, filename , RW, file_version_map, msg):
     if filename not in file_version_map:
         file_version_map[filename] = 0
@@ -22,11 +27,10 @@ def send_write(client_socket, fileserverIP_DS, fileserverPORT_DS, filename , RW,
 
     print("Sending version: " + str(file_version_map[filename]))
 
-    # send the sting requesting a write to the file server
     client_socket.connect((fileserverIP_DS,fileserverPORT_DS))
     client_socket.send(send_msg.encode())
-    #print ("SENT " + send_msg + " to " + str(fileserverIP_DS) + " " + str(fileserverPORT_DS))
 
+# for sending request to server for reading the file
 def send_read(client_socket, fileserverIP_DS, fileserverPORT_DS, filename , RW, file_version_map, msg, filename_DS, client_id):
     if filename not in file_version_map:
         file_version_map[filename] = 0
@@ -36,55 +40,30 @@ def send_read(client_socket, fileserverIP_DS, fileserverPORT_DS, filename , RW, 
         client_socket.send(send_msg.encode())
         return False
 
-    cache_file = curr_path + "\\client_cache" + client_id + "\\" + filename_DS  
-    if os.path.exists(cache_file) == True:
-        send_msg = "CHECK_VERSION|" + filename
-        client_socket1 = create_socket()
-        client_socket1.connect((fileserverIP_DS,fileserverPORT_DS))
-        client_socket1.send(send_msg.encode())
-        print ("Checking version...")
-        version_FS = client_socket1.recv(1024)    # receive file server version number
-        version_FS = version_FS.decode()
-        client_socket1.close()
-
-    if version_FS != str(file_version_map[filename]):
-        print("Versions do not match...")
-        print("REQUESTING FILE FROM FILE SERVER...")
-        file_version_map[filename] = int(version_FS) 
-        send_msg = filename + "|" + RW + "|" + msg    
-
-        # send the string requesting a read from the file server
-        client_socket.connect((fileserverIP_DS,fileserverPORT_DS))
-        client_socket.send(send_msg.encode())
-        #print ("SENT MSG: " + send_msg)
-        return False    # didn't go to cache - new version
-    else:
+    send_msg = "CHECK_VERSION|" + filename
+    client_socket1 = create_socket()
+    client_socket1.connect((fileserverIP_DS,fileserverPORT_DS))
+    client_socket1.send(send_msg.encode())
+    print ("Checking version...")
+    version_FS = client_socket1.recv(1024)    # receive file server version number
+    version_FS = version_FS.decode()
+    client_socket1.close()
+    cache_file = curr_path + "\\cache" + "\\client_cache" + client_id + "\\" + filename_DS  
+    print(cache_file)
+    if os.path.exists(cache_file) == True and version_FS == str(file_version_map[filename]):
         # read from cache
         print("Versions match, reading from cache...")
         cache(filename_DS, "READ", "r", client_id)
+    else:
+        print("Versions do not match...")
+        print("REQUESTING FILE FROM FILE SERVER...")
+        file_version_map[filename] = int(version_FS)
+        send_msg = filename + "|" + RW + "|" + msg    
+        client_socket.connect((fileserverIP_DS,fileserverPORT_DS))
+        client_socket.send(send_msg.encode())
+        return False    # didn't go to cache - new version
 
     return True     # went to cache
-
-
-
-
-def lock_unlock_file(client_socket, client_id, filename, lock_or_unlock):
-
-    serverName = 'localhost'
-    serverPort = 4040   # port of directory service
-    client_socket.connect((serverName,serverPort))
-
-    if lock_or_unlock == "lock":
-        msg = client_id + "_1_:" + filename  # 1 = lock the file
-    elif lock_or_unlock == "unlock":
-        msg = client_id + "_2_:" + filename   # 2 = unlock the file
-
-    # send the string requesting file info to directory service
-    client_socket.send(msg.encode())
-    reply = client_socket.recv(1024)
-    reply = reply.decode()
-
-    return reply
 
 def handle_write(filename, client_id, file_version_map):
     # ------ INFO FROM DS ------
@@ -99,24 +78,27 @@ def handle_write(filename, client_id, file_version_map):
         fileserverIP_DS = reply_DS.split('|')[1]
         fileserverPORT_DS = reply_DS.split('|')[2]
 
-        # ------ LOCKING ------
-        client_socket = create_socket()
-        grant_lock = lock_unlock_file(client_socket, client_id, filename_DS, "lock")
-        client_socket.close()
-
-        while grant_lock != "file_granted":
-            print("File not granted, polling again...")
-            client_socket = create_socket()
-            grant_lock = lock_unlock_file(client_socket, client_id, filename_DS, "lock")
-            client_socket.close()
-
-            if grant_lock == "TIMEOUT":     # if timeout message received from locking service, break
-                return False
-
-            time.sleep(0.1)     # wait 0.1 sec if lock not available and request it again
-
-        print("You are granted the file...")
-
+        # ------ ACQUIRE LOCK FROM SERVER ------
+        failure = False # if failed to acquire lock
+        while failure == False:
+            locking_socket = create_socket()
+            locking_socket.connect((lock_server_IP, lock_server_PORT))
+            req = client_id + "_1_" + filename
+            locking_socket.send(req.encode())
+            res = locking_socket.recv(1024).decode()
+            if(res == "TIMEOUT"):
+                failure = True
+                break
+            if(res == "file_granted"):
+                break
+            print(client_id, " Acquiring Lock for file ", filename)
+            sleep(0.1)
+            locking_socket.close()
+        
+        if failure:
+            print(client_id, " can't Acquire Lock for file ", filename)
+            return "INTERNAL_ERROR_OCCURED"
+        
         # ------ ClIENT WRITING TEXT ------
         print ("Write some text...")
         print ("<end> to finish writing")
@@ -147,20 +129,25 @@ def handle_write(filename, client_id, file_version_map):
             print("Server version no changed - updating client version no.")
             file_version_map[filename_DS] = version_num
 
+        # sleep(15)
+
+        # ------ RELEASING THE LOCK ------
+        locking_socket = create_socket()
+        locking_socket.connect((lock_server_IP, lock_server_PORT))
+        req = client_id + "_2_" + filename
+        locking_socket.send(req.encode())
+        res = locking_socket.recv(1024).decode()
+        print(res)
+        locking_socket.close()
+
 
         # ------ CACHING ------
         cache(filename_DS, write_client_input, "a+", client_id)
 
-        # ------ UNLOCKING ------
-        client_socket = create_socket()
-        reply_unlock = lock_unlock_file(client_socket, client_id, filename_DS, "unlock")
-        client_socket.close()
-        print (reply_unlock)
-
-        return True
+        return "Written to file " + filename + " successfully"
 
 def cache(filename_DS, write_client_input, RW, client_id):
-    cache_file = curr_path + "\\client_cache" + client_id + "\\" + filename_DS       # append the cache folder and filename to the path
+    cache_file = curr_path + "\\cache" + "\\client_cache" + client_id + "\\" + filename_DS       # append the cache folder and filename to the path
     
     os.makedirs(os.path.dirname(cache_file), exist_ok=True)         # create the directory/file
 
@@ -173,7 +160,6 @@ def cache(filename_DS, write_client_input, RW, client_id):
             print(f.read())
             print_breaker()
 
-    
 
 def handle_read(filename, file_version_map, client_id):
     client_socket = create_socket()  # create socket to directory service
@@ -208,6 +194,14 @@ def handle_read(filename, file_version_map, client_id):
                 del file_version_map[filename_DS]
 
 
+def handle_create(filename, file_version_map, client_id):
+    client_socket = create_socket()
+    res = send_directory_service(client_socket, filename, "CREATE", False)
+    print(res)
+    file_version_map[filename] = 0
+    client_socket.close()
+
+
 def send_directory_service(client_socket, filename, RW, list_files):
     serverName = 'localhost'
     serverPort = 9090   # port of directory service
@@ -220,7 +214,7 @@ def send_directory_service(client_socket, filename, RW, list_files):
         reply = client_socket.recv(1024)
         reply = reply.decode()
     else:
-        msg = "LIST"
+        msg = "LIST|w"
         # send the string requesting file info to directory service
         client_socket.send(msg.encode())
         reply = client_socket.recv(1024)
@@ -238,6 +232,7 @@ def instructions():
     print ("<write> [filename] - write to file mode")
     print ("<end> - finish writing")
     print ("<read> [filename] - read from file mode")
+    print ("<create> [filename] - create a file")
     print ("<list> - lists all existing files")
     print ("<instructions> - lets you see the instructions again")
     print ("<quit> - exits the application")

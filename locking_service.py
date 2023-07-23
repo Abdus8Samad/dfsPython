@@ -10,7 +10,6 @@ serverSocket.listen(10)
 print ('LOCKING SERVICE is ready to receive...')
 
 def check_if_unlocked(filename, filename_locked_map):
-
 	
 	if filename in filename_locked_map:		# check for existance of filename as a key in the dictionary
 		if filename_locked_map[filename] == "unlocked":
@@ -36,9 +35,8 @@ def main():
 
 		print("\nRECEIVED: " + recv_msg )
 
-		if "_1_:" in recv_msg:
-			client_id = recv_msg.split("_1_:")[0]
-			filename = recv_msg.split("_1_:")[1]
+		if "_1_" in recv_msg:
+			client_id, filename = recv_msg.split("_1_")
 			waiting_client = False
 
 
@@ -95,9 +93,8 @@ def main():
 					print("SENT: " + grant_message + client_id)
 					connectionSocket.send(grant_message.encode())	# send file not granted message
 
-		elif "_2_:" in recv_msg:		# if unlock message (_2_) received 
-			client_id = recv_msg.split("_2_:")[0]
-			filename = recv_msg.split("_2_:")[1]
+		elif "_2_" in recv_msg:		# if unlock message (_2_) received 
+			client_id, filename = recv_msg.split("_2_")
 
 			filename_locked_map[filename] = "unlocked"		# unlock the current file
 			grant_message = "File unlocked..."
