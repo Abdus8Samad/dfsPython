@@ -129,19 +129,17 @@ This mechanism allows clients to access the file for writing in a controlled and
 
 ----
 
-**Caching**
+**Caching (Write Through)**
+
+![](https://github.com/Abdus8Samad/dfsPython/blob/main/write_through.png)
 
 the described system ensures cache consistency between clients when accessing a file. Here's a summary of how the process works:
 
 1. Write Request: When a client requests to write to a file, the request is sent to the fileserver that holds the primary copy of the file. The file is updated on the fileserver, and simultaneously, the client's cache is also updated with the new version of the file.
 
-2. Version Number Comparison: When the client later wishes to read the file, it checks the version number stored on both its side (in the cache) and on the fileserver side.
+2. Read Request: When a client requests to read a file, the client first checks in the cache if the file is present, if it is it return that otherwise it requests the corresponding replica server assign in the `file_mappings.csv` file and that server sends the content. It is simultaneously updated in the cache. 
 
-3. Cache Reading: If the version numbers match, it means the file is up-to-date, and the client can read the file directly from its cache, avoiding unnecessary network communication. This speeds up access and reduces server load.
-
-4. Cache Updating: However, if the version numbers don't match, it indicates that the file might have been updated by another client or process. In this case, the client reads the file from the fileserver to get the latest version, and it also updates its local cache with the new version number.
-
-By following this approach, the system ensures that clients always have the most recent version of a file when reading from their cache. 
+3. Cache Freshness: By following this approach, the system ensures that clients always have the most recent version of a file when reading from their cache.
 
 ---- 
 
