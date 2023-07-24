@@ -4,23 +4,24 @@ import sys
 def main():
     print("Starting services...")
     # print("for stopping the service type <quit>")
+
     # ------ file servers ------
-    fileServerA = subprocess.Popen(["python", "./fileserverA/file_serverA.py"])
-    fileServerB = subprocess.Popen(["python", "./fileserverB/file_serverB.py"])
-    fileServerC = subprocess.Popen(["python", "./fileserverC/file_serverC.py"])
+    primary_server = subprocess.Popen(["python", "./primary_server/primary_server.py"])
+    replica_server_1 = subprocess.Popen(["python", "./replica_server_1/replica_server_1.py"])
+    replica_server_2 = subprocess.Popen(["python", "./replica_server_2/replica_server_2.py"])
 
     # ------ directory service ------
     directoryService = subprocess.Popen(["python", "directory_service.py"])
 
-    # ------ locking service ------
-    lockingService = subprocess.Popen(["python", "locking_service.py"])
+    # ------ lock service ------
+    lockService = subprocess.Popen(["python", "lock_service.py"])
 
-    fileServerA.wait() # mainly for writing
-    fileServerB.wait() # mainly for reading
-    fileServerC.wait() # same as B
+    primary_server.wait() # mainly for writing
+    replica_server_1.wait() # mainly for reading
+    replica_server_2.wait() # same as 1
 
     directoryService.wait() # for getting info about directories and listing files
-    lockingService.wait() # for adding mutex locks for preventing writing conflicts
+    lockService.wait() # for adding mutex locks for preventing writing conflicts
     # while sys.stdin.readline != "<quit>":
     #     pass
     # sys.exit()

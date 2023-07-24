@@ -40,25 +40,29 @@ def send_read(client_socket, fileserverIP_DS, fileserverPORT_DS, filename , RW, 
         client_socket.send(send_msg.encode())
         return False
 
-    send_msg = "CHECK_VERSION|" + filename
-    client_socket1 = create_socket()
-    client_socket1.connect((fileserverIP_DS,fileserverPORT_DS))
-    client_socket1.send(send_msg.encode())
-    print ("Checking version...")
-    version_FS = client_socket1.recv(1024)    # receive file server version number
-    version_FS = version_FS.decode()
-    client_socket1.close()
+    # ---------- version system ---------
+    # send_msg = "CHECK_VERSION|" + filename
+    # client_socket1 = create_socket()
+    # client_socket1.connect((fileserverIP_DS,fileserverPORT_DS))
+    # client_socket1.send(send_msg.encode())
+    # print ("Checking version...")
+    # version_FS = client_socket1.recv(1024)    # receive file server version number
+    # version_FS = version_FS.decode()
+    # client_socket1.close()
+
     cache_file = curr_path + "\\cache" + "\\client_cache" + client_id + "\\" + filename_DS  
-    print(cache_file)
-    if os.path.exists(cache_file) == True and version_FS == str(file_version_map[filename]):
+    print("checking cache: ", cache_file);
+    if os.path.exists(cache_file) == True:
         # read from cache
-        print("Versions match, reading from cache...")
+        print("Cache Hit!, reading from cache...")
         cache(filename_DS, "READ", "r", client_id)
     else:
         print("Versions do not match...")
         print("REQUESTING FILE FROM FILE SERVER...")
-        file_version_map[filename] = int(version_FS)
-        send_msg = filename + "|" + RW + "|" + msg    
+
+        # file_version_map[filename] = int(version_FS)
+
+        send_msg = filename + "|" + RW + "|" + msg
         client_socket.connect((fileserverIP_DS,fileserverPORT_DS))
         client_socket.send(send_msg.encode())
         return False    # didn't go to cache - new version
@@ -98,6 +102,9 @@ def handle_write(filename, client_id, file_version_map):
         if failure:
             print(client_id, " can't Acquire Lock for file ", filename)
             return "INTERNAL_ERROR_OCCURED"
+
+
+        # -------- CRITICAL SECTION START --------
         
         # ------ ClIENT WRITING TEXT ------
         print ("Write some text...")
@@ -130,6 +137,9 @@ def handle_write(filename, client_id, file_version_map):
             file_version_map[filename_DS] = version_num
 
         # sleep(15)
+
+        # -------- CRITICAL SECTION END --------
+
 
         # ------ RELEASING THE LOCK ------
         locking_socket = create_socket()
@@ -179,15 +189,18 @@ def handle_read(filename, file_version_map, client_id):
 
         if not read_cache:
             reply_FS = client_socket.recv(1024)    # receive reply from file server, this will be the text from the file
-            reply_FS = reply_FS.decode()
+            file_Content, file_Version = reply_FS.decode().split('|')
             client_socket.close()
 
-            if reply_FS != "EMPTY_FILE":
+            if file_Content != "EMPTY_FILE":
                 print_breaker()
-                print (reply_FS)
+                print (file_Content)
                 print_breaker()
 
-                cache(filename_DS, reply_FS, "w", client_id)  # update the cached file with the new version from the file server
+                cache(filename_DS, file_Content, "w", client_id)  # update the cached file with the new version from the file server
+
+                # file_version_map[filename_DS] = int(file_Version)
+
                 print (filename_DS + " successfully cached...")
             else:
                 print(filename_DS + " is empty...")

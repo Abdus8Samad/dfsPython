@@ -2,13 +2,13 @@
 from socket import *
 import os, sys
 
-server_addr = "localhost"
+primary_serverddr = "localhost"
 server_port = 12001
 server_socket = socket(AF_INET,SOCK_STREAM)
-server_socket.bind((server_addr, server_port))
+server_socket.bind((primary_serverddr, server_port))
 server_socket.listen(10)
 curr_path = os.path.dirname(os.path.realpath(sys.argv[0]))
-print ('FILE SERVER A is ready to receive...')
+print ('PRIMARY SERVER is ready to receive...')
 
 file_version_map = {}
 
@@ -22,7 +22,7 @@ def replicate(filename, action):
 
 	port = 12002
 	server_ip = 'localhost'
-	print("Replicating to fileserver B")
+	print("Replicating to replica_server_1")
 	replicate_socket = socket(AF_INET, SOCK_STREAM)
 	replicate_socket.connect((server_ip,port))
 	replicate_socket.send(msg.encode())
@@ -30,7 +30,7 @@ def replicate(filename, action):
 
 	port = 12003
 	server_ip = 'localhost'
-	print("Replicating to fileserver C")
+	print("Replicating to replica_server_2")
 	replicate_socket = socket(AF_INET, SOCK_STREAM)
 	replicate_socket.connect((server_ip,port))
 	replicate_socket.send(msg.encode())

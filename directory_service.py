@@ -6,9 +6,9 @@ from random import random
 from socket import *
 
 serverPort = 9090
-server_A_port = 12001
-server_B_port = 12002
-server_C_port = 12003
+primary_server_port = 12001
+replica_server_1_port = 12002
+replica_server_2_port = 12003
 server_default_address = "localhost"   # address for every server for development
 serverSocket = socket(AF_INET,SOCK_STREAM)
 serverSocket.bind(('localhost', serverPort))
@@ -36,25 +36,25 @@ def check_mappings(client_msg, list_files):
 				name_match = (user_filename == filename or actual_filename == filename)
 				if name_match and RW == 'w':		# check if file inputted by the user exists	(eg. file123)
 					print("WRITING")
-					server_addr = row['server_addr']			# get the file's file server IP address
+					primary_serverddr = row['primary_serverddr']			# get the file's file server IP address
 					server_port = row['server_port']			# get the file's file server PORT number
 
 					print("actual_filename: " + actual_filename)
-					print("server_addr: " + server_addr)
+					print("primary_serverddr: " + primary_serverddr)
 					print("server_port: " + server_port)
 
-					return actual_filename + "|" + server_addr + "|" + server_port	# return string with the information on the file
+					return actual_filename + "|" + primary_serverddr + "|" + server_port	# return string with the information on the file
 
 				elif name_match and RW == 'r' and primary_copy == 'no':
 					print("READING")
-					server_addr = row['server_addr']			# get the file's file server IP address
+					primary_serverddr = row['primary_serverddr']			# get the file's file server IP address
 					server_port = row['server_port']			# get the file's file server PORT number
 
 					print("actual_filename: " + actual_filename)
-					print("server_addr: " + server_addr)
+					print("primary_serverddr: " + primary_serverddr)
 					print("server_port: " + server_port)
 
-					return actual_filename + "|" + server_addr + "|" + server_port	# return string with the information on the file
+					return actual_filename + "|" + primary_serverddr + "|" + server_port	# return string with the information on the file
 
 			elif ct % 2 == 0:
 				file_row = file_row + actual_filename +  "\n"		# append filename to return string
@@ -70,11 +70,11 @@ def create_mapping(filename):
 
 	server_for_reading = None
 	if(round(random(), 0) == 0):  # for now selecting b or c randomly for reading
-		server_for_reading = server_B_port
+		server_for_reading = replica_server_1_port
 	else:
-		server_for_reading = server_C_port
+		server_for_reading = replica_server_2_port
 
-	for_writing = mapping + ',' + str(server_A_port) + ',' + 'yes\n'
+	for_writing = mapping + ',' + str(primary_server_port) + ',' + 'yes\n'
 	for_reading = mapping + ',' + str(server_for_reading) + ',' + 'no\n'
 	file = open("file_mappings.csv", 'a+')
 	file.write(for_writing + for_reading)
@@ -84,7 +84,7 @@ def create_file(filename):
 	map = create_mapping(filename)
 	print(map)
 	main_server_socket = socket(AF_INET, SOCK_STREAM)
-	main_server_socket.connect((server_default_address, server_A_port))
+	main_server_socket.connect((server_default_address, primary_server_port))
 	msg = "CREATE" + "|" + filename
 	main_server_socket.send(msg.encode())
 	res = main_server_socket.recv(1024)

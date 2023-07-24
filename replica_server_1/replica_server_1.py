@@ -5,13 +5,13 @@ import sys
 import os
 from time import sleep
 
-server_addr = "localhost"
+primary_serverddr = "localhost"
 server_port = 12003
 server_socket = socket(AF_INET,SOCK_STREAM)
-server_socket.bind((server_addr, server_port))
+server_socket.bind((primary_serverddr, server_port))
 server_socket.listen(10)
 curr_path = os.path.dirname(os.path.realpath(sys.argv[0]))
-print ('FILE SERVER C is ready to receive...')
+print ('REPLICA SERVER 2 is ready to receive...')
 
 file_version_map = {}
 read_count = 0
@@ -20,7 +20,7 @@ def read_write(filename, RW, text, file_version_map):
 	global read_count
 	if RW == "r":	# if read request
 		read_count += 1
-		print(" ----------- ", read_count, " users reading on file server C -----------\n")
+		print(" ----------- ", read_count, " users reading on REPLICA SERVER 2 -----------\n")
 		if os.stat(curr_path + "\\" + filename).st_size != 0:
 			file = open(curr_path + "\\" + filename, RW)
 			text_in_file = file.read()		# read the file's text into a string
@@ -28,12 +28,12 @@ def read_write(filename, RW, text, file_version_map):
 				file_version_map[filename] = 0
 			# sleep(6.5)
 			read_count -= 1
-			print(" ----------- ", read_count, " users reading on file server C -----------\n");
+			print(" ----------- ", read_count, " users reading on REPLICA SERVER 2 -----------\n");
 			return (text_in_file, file_version_map[filename])
 		else:
 			empty_msg = "EMPTY_FILE"
 			read_count -= 1
-			print(" ----------- ", read_count, " users reading on file server C -----------\n")
+			print(" ----------- ", read_count, " users reading on REPLICA SERVER 2 -----------\n")
 			return (empty_msg, -1)
 
 
@@ -63,7 +63,7 @@ def send_client_reply(response, RW, connection_socket):
 		#print ("Sent: " + reply)
 
 	elif response[1] != -1 and RW == "r":
-		connection_socket.send(response[0].encode())
+		connection_socket.send((response[0] + "|" + str(response[1])).encode())
 		#print ("Sent: " + reply)
 
 	elif response[1] == -1: 
@@ -105,13 +105,13 @@ def handle_client(connection_socket):
 		f = open(curr_path + "\\" + rep_filename, 'w')
 		f.write(rep_text)
 		f.close()
-		print(rep_filename + " successfully replicated on server C...\n")
+		print(rep_filename + " successfully replicated on REPLICA SERVER 2...\n")
 
 	elif "CREATE" in recv_msg:
 		rep_filename = recv_msg.split("|")[1]
 		file_version_map[rep_filename] = 0
 		open(curr_path + "\\" + rep_filename, 'a+')
-		print(rep_filename + " successfully created on server C...\n")
+		print(rep_filename + " successfully created on REPLICA SERVER 2...\n")
 
 def main():
 	while 1:

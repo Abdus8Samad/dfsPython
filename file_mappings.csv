@@ -1,4 +1,4 @@
-user_filename,actual_filename,server_addr,server_port,primary
+user_filename,actual_filename,primary_serverddr,server_port,primary
 file1,file1.txt,localhost,12001,yes
 file1,file1.txt,localhost,12003,no
 filex,filex.txt,localhost,12001,yes
@@ -15,3 +15,5 @@ shard2,shard2.txt,localhost,12001,yes
 shard2,shard2.txt,localhost,12002,no
 somefilename,somefilename.txt,localhost,12001,yes
 somefilename,somefilename.txt,localhost,12003,no
+testFile,testFile.txt,localhost,12001,yes
+testFile,testFile.txt,localhost,12002,no

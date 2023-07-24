@@ -21,14 +21,14 @@ DIRECTORY SERVICE is ready to receive...
 
 ## file servers:
 
-* fileserver A holds the primary copy for replication, can be used for writing : **python fileserverA.py**
-* fileserver B only takes read requests: **python fileserverB.py**
-* fileserver C (like fileserver B) only takes read requests: **python fileserverC.py**
+* primary_server holds the primary copy for replication, can be used for writing : **python primary_server.py**
+* replica_server_1 only takes read requests: **python replica_server_1.py**
+* replica_server_2 (like replica_server_1) only takes read requests: **python replica_server_2.py**
 
 
 ## Example Usage
 
-* Start up the start_script.py. Fileserver A, fileserver B and fileserver c must exist in their own separate folders/ directories.
+* Start up the start_script.py. primary_server, replica_server_1 and replica_server_2 must exist in their own separate folders/ directories.
 
 * Open 2 clients using ***python client.py*** in separate terminals.
 
@@ -90,7 +90,7 @@ The following are the main components of the file system:
 
 **Distributed transparent file access**
 
-Clients can read from and write to files on fileservers. The client side application is a text editor and viewer. The client application's functionality comes from the client library (client_lib.py). The client never downloads or uploads a file from a fileserver, it downloads or uploads the contents of the file. 
+Clients can read from and write to files on fileservers. The client side application is a text editor and viewer. The client application's functionality comes from the client library (client_utils.py). The client never downloads or uploads a file from a fileserver, it downloads or uploads the contents of the file. 
 
 The client can use the following commands to access files:
 
@@ -109,28 +109,50 @@ The client can use the following commands to access files:
 
 ----
 
-**Directory service**
+**Directory service (similar to a load balancer)**
 
-A directory service is used to map the file name that the client requests to a file server. The directory service uses a CSV file to store the mappings (file_mappings.csv). This stores the actual name of the file, the file server IP and Port it is stored on and whether the file server is holds the primary copy or not. 
 
-If a client wishes to write to a file the directory service sends the request to fileserver A, the holder of the primary copy. If the client wishes to read from a file the directory service sends the request to fileserver B or fileserver C, these hold replicated versions of the files on fileserver A. 
+A directory service facilitates the association between the requested file name and the corresponding file server. This information is stored in a CSV file called "file_mappings.csv," which contains details like the file's actual name, the file server's IP and Port where it's stored, and whether the file server holds the primary copy.
+
+When a client intends to write to a file, the directory service forwards the request to primary_server, which holds the primary copy. On the other hand, if the client wants to read from a file, the directory service routes the request to either replica_server_1 or replica_server_2, as they have replicated versions of the files present on primary_server. This redundancy ensures smoother access and availability of files while avoiding overloading a single server.
+
 
 ----
 
 **Locking service**
 
-If client 1 wishes to write to a file it requests to lock the file for writing. Client 1 can only write to a file when it receives the lock, it can read from a file whenever it wants. If client 2 wants to write to a file and the file is locked for writing then client 2 must wait until client 1 has unlocked it. Client 2 who is requesting the write will keep polling to check for the unlocked file. I have included a 10 second timeout for polling (which is a short period of time) for simulation purposes. 
+In the given file access system, when client 1 wishes to write to a file, it requests a lock for writing. The client can only proceed with writing once it receives the lock. However, it can read from the file without any restrictions. If client 2 wants to write to the same file and finds it locked by client 1, it must wait until client 1 unlocks it. Client 2 will continuously poll the file's status to check if it becomes unlocked, with a timeout of 10 seconds for each polling attempt.
 
-If client 1 is writing to a file and client 2, client 3 and client 4 request to write to the file in this order, client 2 will be the first client to retrieve the lock on the file. When client 2 finishes, client 3 will get the lock, and then client 4, etc. This is fair locking and unlocking. It works as a FIFO queue. 
+This system ensures fair locking and unlocking behavior, resembling a First-In-First-Out (FIFO) queue. When multiple clients request to write to the file in sequence (client 2, client 3, and client 4), they will obtain the lock in the order of their requests. Hence, client 2 will be the first to acquire the lock on the file. Once client 2 finishes writing and unlocks the file, client 3 will receive the lock, followed by client 4, and so on, maintaining the fairness of access.
+
+This mechanism allows clients to access the file for writing in a controlled and orderly manner, preventing contention and ensuring that all clients eventually get their turn to write to the file.
 
 ----
 
 **Caching**
 
-If a client requests to write to a file it goes to the fileserver with the primary copy. The write also goes to the client's cache. The version number of the file is stored on the client side and on the fileserver side. If the client next wishes to read the file, it compares the version number on the fileserver side and the version number on its side. If they match then the client reads from its cache. If they do not match the client reads from the fileserver and updates its record of the version number for the file. This ensures cache consistency between clients.
+the described system ensures cache consistency between clients when accessing a file. Here's a summary of how the process works:
+
+1. Write Request: When a client requests to write to a file, the request is sent to the fileserver that holds the primary copy of the file. The file is updated on the fileserver, and simultaneously, the client's cache is also updated with the new version of the file.
+
+2. Version Number Comparison: When the client later wishes to read the file, it checks the version number stored on both its side (in the cache) and on the fileserver side.
+
+3. Cache Reading: If the version numbers match, it means the file is up-to-date, and the client can read the file directly from its cache, avoiding unnecessary network communication. This speeds up access and reduces server load.
+
+4. Cache Updating: However, if the version numbers don't match, it indicates that the file might have been updated by another client or process. In this case, the client reads the file from the fileserver to get the latest version, and it also updates its local cache with the new version number.
+
+By following this approach, the system ensures that clients always have the most recent version of a file when reading from their cache. 
 
 ---- 
 
 **Replication**
 
-The primary copy model is adopted in this file system to implement file replication among fileservers. When a client wishes to write to a file the directory service sends the write to fileserver A. Filserver A holds the primary copy of all files and therefore takes all write requests. When the client finishes writing, fileserver A sends a copy of the file to fileserver B and fileserver C. This ensures consistency of the same files across all fileservers. If a client requests a read it is not sent to fileserver A but is sent to read a replicated copy of the file on fileserver B or fileserver C. 
+The primary copy model in this file system is designed to ensure file replication among multiple fileservers, providing data redundancy and consistency. Here's how the process works:
+
+1. Write Request: When a client wishes to write to a file, the directory service directs the write request to primary_server. primary_server is responsible for holding the primary copy of all files, making it the central authority for write operations. This design simplifies the management of write requests, as they are all handled by primary_server.
+
+2. File Replication: After the client finishes writing the file, primary_server ensures consistency across all fileservers by replicating the file. It sends a copy of the newly updated file to both replica_server_1 and replica_server_2.
+
+3. Read Request: When a client requests to read a file, the request is not directed to primary_server (the primary copy holder). Instead, the client is sent to read a replicated copy of the file that resides on either replica_server_1 or replica_server_2. This load balancing approach ensures that read requests are distributed among the replicated servers, reducing potential bottlenecks and improving overall performance.
+
+By implementing this primary copy model with file replication, the file system achieves data redundancy and consistency across multiple fileservers. The primary copy on primary_server allows for centralized write management, while the replicated copies on replica_server_1 and replica_server_2 enable efficient and balanced read operations for clients. This system architecture enhances data availability, fault tolerance, and performance in the file system.
